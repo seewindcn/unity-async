@@ -39,8 +39,8 @@ public class Hub:
 	static _instance as Hub
 	public static CALLBACK as object = object()
 
-	public IdleTime as int = 100
-	public BusyTime as int = 10
+	public IdleTime as double = 0.1
+	public BusyTime as double = 0.01
 	locker as object
 	lets as Hash
 	yields as Boo.Lang.List[of IEnumerator]
@@ -84,7 +84,7 @@ public class Hub:
 
 	def callback(ar as IAsyncResult):
 		#Thread.Sleep(200)
-		#print "[callback]", ar
+		#self.Print("[callback]", ar)
 		lock self.locker:
 			y = ar.AsyncState cast IEnumerator
 			let = self.GetLet(y)
@@ -124,8 +124,8 @@ public class Hub:
 			#print "addCallback", let
 
 
-	def addTimeUp(ms as int, y as IEnumerator):
-		t = TimeSpan(TimeSpan.TicksPerMillisecond * ms)
+	def addTimeUp(time as long, y as IEnumerator) as YieldState:
+		t = TimeSpan(time)  # TimeSpan.TicksPerMillisecond * ms
 		state = YieldState(CYield:y, WakeTime:DateTime.Now + t)
 		self.times.Add(state)
 		self.times.Sort() do (l as YieldState, r as YieldState):
@@ -135,7 +135,7 @@ public class Hub:
 				return 1
 			else:
 				return 0
-		#print self.times
+		return state
 
 
 	def call(t as IEnumerator):
@@ -160,9 +160,9 @@ public class Hub:
 		else: #continue yield
 			self.addYield(t)
 
-	virtual def tick() as bool:
+	virtual def tick() as double:
 		lyields = len(self.yields)
-		ltimes = len(self.times)
+		#ltimes = len(self.times)
 
 		#schedule yield
 		for i in range(lyields):
@@ -176,7 +176,13 @@ public class Hub:
 			state = self.times.Pop(0)
 			#print "wakeUp:", state.WakeTime.Ticks
 			self.call(state.CYield)
-		return (lyields + ltimes) > 0
+		if len(self.yields) > 0:
+			sleepTime = self.BusyTime
+		else:
+			sleepTime = self.IdleTime
+		if len(self.times):
+			sleepTime = Math.Min((self.times[0].WakeTime - DateTime.Now).TotalSeconds, sleepTime)
+		return sleepTime
 
 
 	public def StartCoroutine(routine) as Greenlet:
@@ -188,11 +194,11 @@ public class Hub:
 		#print "StartCoroutine", let
 		return let
 
-	public def StartCoroutine(ms as int, routine) as Greenlet:
+	public def StartCoroutine(ms as double, routine) as Greenlet:
 		y = call_yield(routine)
 		t = y.GetEnumerator() cast IEnumerator
 		let = Greenlet(CYield:t)
-		self.addTimeUp(ms, t)
+		self.addTimeUp(ms * TimeSpan.TicksPerMillisecond, t)
 		self.lets[t] = let
 		#print "StartCoroutine", let
 		return let
@@ -202,7 +208,7 @@ public class Hub:
 	public def Sleep(ms as int) as IEnumerable:
 		if self._current == null:
 			raise AsyncError("Hub.Sleep only can call from coroutine")
-		self.addTimeUp(ms, self._current)
+		self.addTimeUp(ms * TimeSpan.TicksPerMillisecond, self._current)
 		yield Hub.CALLBACK
 
 	//waiting for stop
@@ -212,8 +218,8 @@ public class Hub:
 			return
 		return (let cast Greenlet).Join(timeout)
 
-	public virtual def print(*args):
-		pass
+	public virtual def Print(*args):
+		print args
 
 
 def call_yield(f as IEnumerable) as IEnumerable:
@@ -230,9 +236,10 @@ public class NormalHub(Hub):
 	public def Loop():
 		self.Stoped = false
 		while not self.Stoped:
-			if not self.tick():
+			stime = self.tick()
+			if stime >= self.IdleTime:
 				self.onIdle()
-		self.Stoped = true
+		#self.Stoped = true
 
 	def onIdle():
 		Thread.Sleep(self.IdleTime)
@@ -294,6 +301,12 @@ public class AsyncEvent(IEnumerator):
 		h.addYields(self.yields)
 		self.yields.Clear()
 
+	def Reset():
+		self.Clear()
+	
+	Current as object:
+		get:
+			return self._value
 
 	public def Wait(timeout as int) as IEnumerable:
 		if self._value != AsyncEvent.NULL:
@@ -323,9 +336,10 @@ public class AsyncTimeout(IEnumerator):
 	[Property(Timeout)]
 	_timeout as bool
 	_cancel as bool
-	mstime as int
+	timeout as int
+	state as YieldState
 
-	public static def WithStart(timeout as int) as AsyncTimeout:
+	public static def WithStart(timeout as double) as AsyncTimeout:
 		t = AsyncTimeout()
 		t.Start(timeout)
 		return t
@@ -344,20 +358,26 @@ public class AsyncTimeout(IEnumerator):
 		hub.GetLet(self.y).Timeout = self
 		hub.addYield(self.y)
 
-	public def Start(timeout as int):
+	def Reset():
+		self.Cancel(true)
+	
+	Current as object:
+		get:
+			return self._timeout
+			
+	public def Start(timeout as double):
 		self._cancel = false
 		h = Hub.Default()
 		self.y = h.Current
-		self.mstime = timeout
-		h.addTimeUp(timeout, self)
+		self.timeout = timeout
+		self.state = h.addTimeUp(timeout * TimeSpan.TicksPerMillisecond, self)
 
 	public def Cancel(isRaise as bool):
 		h = Hub.Default()
 		if h.CurrentLet.Timeout == self:
 			h.CurrentLet.Timeout = null
 		if isRaise and self._timeout:
-			t = self.mstime
-			raise TimeoutError("Timeout:$t")
+			raise TimeoutError("Timeout:$(self.timeout)")
 		#Timeout use at short time, so not delete self from Hub.times,
 		self._cancel = true
 
@@ -365,6 +385,8 @@ public class AsyncTimeout(IEnumerator):
 		code = self.GetHashCode()
 		return "Async.AsyncTimeout<$code>"
 
+	def PassTime() as TimeSpan:
+		return self.state.WakeTime - DateTime.Now
 
 public class SocketError(AsyncError):
 	def constructor(s as string):
@@ -395,7 +417,8 @@ public class AsyncSocket:
 
 		hub = Hub.Default()
 		rs = sock.BeginConnect(ipEnd, hub.cb, hub.Current)
-		yield rs
+		if not rs.IsCompleted:
+			yield rs
 		if hub.CurrentLet.CheckTimeout():
 			self.Close()
 		else:
@@ -417,20 +440,26 @@ public class AsyncSocket:
 		hub = Hub.Default()
 		rs = self.sock.BeginSend(data, 0, len(data), SocketFlags.None, 
 				hub.cb, hub.Current);
-		yield rs
+		//hub.Print("$(self.GetHashCode().ToString()) sock.BeginSend .....")
+		if not rs.IsCompleted:
+			yield rs
+		//hub.Print("$(self.GetHashCode().ToString()) sock.EndSending .....")
 		if hub.CurrentLet.CheckTimeout():
 			self.Close()
+			hub.Print("[AsyncSocket.send]:$(self.GetHashCode()) Send Timeout")
 			length = 0
 		else:
 			try:
 				length = self.sock.EndSend(rs)
+				//hub.Print("$(self.GetHashCode().ToString()) sock.EndSend")
 			except e as SocketException:
 				self.Close()
+				hub.Print("$(self.GetHashCode().ToString()) sock.EndSend SocketException")
 				return
 
 		l = len(data)
 		if length != l:
-			print "[AsyncSocket.send]: size($length) != len(data)($l)"
+			hub.Print("[AsyncSocket.send]: size($length) != len(data)($l)")
 
 	def SendString(data as string) as IEnumerable:
 		buf = array(byte, len(data) * sizeof(char))
@@ -446,7 +475,8 @@ public class AsyncSocket:
 			#raise SocketError("socket closed!")
 		rs = self.sock.BeginReceive(data, 0, len(data), SocketFlags.None,
 				hub.cb, hub.Current)
-		yield rs
+		if not rs.IsCompleted:
+			yield rs
 		if hub.CurrentLet.CheckTimeout():
 			self.Close()
 		else:
@@ -571,8 +601,8 @@ class TestCase:
 			yield (l as Greenlet).Join(0)
 
 
-def print(*args):
-	Hub.Default().print(*args)
+def Print(*args):
+	Hub.Default().Print(*args)
 
 def Normal():
 	h = NormalHub()
@@ -585,9 +615,9 @@ def test():
 	case = TestCase()
 	case.start()
 
-Normal()
-test()
-NormalStartForever()
+//Normal()
+//test()
+//NormalStartForever()
 
 
 

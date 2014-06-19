@@ -29,10 +29,12 @@ class UnityHub(Hub):
 
 	public def loop() as IEnumerator:
 		while not self.Stoped:
-			if not self.tick():
-				yield self.BusyTime
-				#Debug.Log("loop")
+			stime = self.tick()
+			if stime < self.IdleTime:
+				#self.Print('loop onIdle', stime)
+				yield WaitForSeconds(stime)
 			else:
+				#self.Print('loop onIdle')
 				yield self.onIdle()
 
 	public def onIdle() as IEnumerator:
@@ -41,7 +43,7 @@ class UnityHub(Hub):
 	def OnDestroy():
 		self.Stop()
 
-	public override def print(*args):
+	public override def Print(*args):
 		msg = join(args)
 		Debug.Log(msg)
 

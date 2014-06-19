@@ -9,37 +9,51 @@ public class Test1:MonoBehaviour {
     string msg = "";
     int count = 8;
     UnityHub hub;
+    int uid = 0;
     public void Start() {
         Debug.Log("start");
         hub = UnityHub.Init(this);
     }
 
+    int getUid() {
+    	uid = uid + 1;
+    	return uid;
+    }
 
     IEnumerable testSock(int i) {
+        string stri = i.ToString();
         msg += "testSock:" + i.ToString() + CR;
         int rt = (int)UnityEngine.Random.Range(100.0F, 1000.0F);
-        AsyncTimeout timeout = AsyncTimeout.WithStart(100000);
+        AsyncTimeout timeout = AsyncTimeout.WithStart(2000);
         AsyncSocket s = new AsyncSocket();
-        yield return s.Connect("119.146.200.16", 80);
+        yield return s.Connect("127.0.0.1", 6000);  //www.baidu.com
+        //yield return s.Connect("115.239.210.27", 80);  //www.baidu.com
         yield return hub.Sleep(rt);
-        Debug.Log("socket connected:" + s.Connected);
+        //Debug.Log(stri + "-socket connected:" + s.Connected);
 
-        yield return s.SendString("GET\n");
-        Debug.Log("Send ok");
+        yield return s.SendString(stri + "GET http://www.baidu.com/ HTTP/1.1\r\n");
+        //Debug.Log(stri + "-Send ok");
         object[] rs = new object[2];
         rs[0] = 0;
         rs[1] = new byte[2048];
 
         yield return hub.Sleep(rt);
         yield return s.RecvString(rs);
-        //Debug.Log("Recv:" + (string)rs[1]);
-        string[] ss = ((string)rs[1]).Split(' ');
-        msg += "testSock(" + i.ToString() +") ok:" + ss[0] + " " + ss[1] + "\n";
+        string l = rs[0].ToString();
+        if ((int)rs[0] <= 0) {
+			Debug.Log(stri + "-Recv:" + l + "-passTime:" + timeout.PassTime().ToString());
+        }
+        Debug.Log(stri + "-Recv:" + l + "--"+  "-passTime:" + timeout.PassTime().ToString());
+        //string[] ss = ((string)rs[1]).Split(' ');
+        msg += "testSock(" + stri +") ok:" + (string)rs[1] + "\n";
+//        msg += "testSock(" + i.ToString() +") ok:" + ss[0] + " " + ss[1] + "\n";
         try {
             timeout.Cancel(true);
         } catch (TimeoutError ){
-            msg += "testSock timeout" + CR;
-        }
+            msg += stri + "-testSock timeout" + CR;
+		} finally {
+			s.Close();
+		}
     }
 
 
@@ -106,7 +120,7 @@ public class Test1:MonoBehaviour {
         x += 100;
         if (GUI.Button(new Rect(x, y, 90, 30), "SocketTest")) {
             for (int i = 0; i < count; i++) {
-                hub.StartCoroutine(testSock(i+1));
+        		hub.StartCoroutine(testSock(getUid()));
             }
         }
         //y += 40;
