@@ -24,14 +24,14 @@ public class Test1:MonoBehaviour {
         string stri = i.ToString();
         msg += "testSock:" + i.ToString() + CR;
         int rt = (int)UnityEngine.Random.Range(100.0F, 1000.0F);
-        AsyncTimeout timeout = AsyncTimeout.WithStart(2000);
+        AsyncTimeout timeout = AsyncTimeout.WithStart(5000);
         AsyncSocket s = new AsyncSocket();
-        yield return s.Connect("127.0.0.1", 6000);  //www.baidu.com
-        //yield return s.Connect("115.239.210.27", 80);  //www.baidu.com
+        //yield return s.Connect("127.0.0.1", 6000);  //echo server
+        yield return s.Connect("115.239.210.27", 80);  //www.baidu.com
         yield return hub.Sleep(rt);
         //Debug.Log(stri + "-socket connected:" + s.Connected);
 
-        yield return s.SendString(stri + "GET http://www.baidu.com/ HTTP/1.1\r\n");
+        yield return s.SendString("GET / HTTP/1.0\r\n\r\n");
         //Debug.Log(stri + "-Send ok");
         object[] rs = new object[2];
         rs[0] = 0;
@@ -40,12 +40,14 @@ public class Test1:MonoBehaviour {
         yield return hub.Sleep(rt);
         yield return s.RecvString(rs);
         string l = rs[0].ToString();
+        string rs1 = (string)rs[1];
         if ((int)rs[0] <= 0) {
 			Debug.Log(stri + "-Recv:" + l + "-passTime:" + timeout.PassTime().ToString());
+        } else {
+        	Debug.Log(stri + "-Recv:" + l + "--"+  "-passTime:" + timeout.PassTime().ToString());
         }
-        Debug.Log(stri + "-Recv:" + l + "--"+  "-passTime:" + timeout.PassTime().ToString());
         //string[] ss = ((string)rs[1]).Split(' ');
-        msg += "testSock(" + stri +") ok:" + (string)rs[1] + "\n";
+        msg += "testSock(" + stri +") ok:" + rs1.Substring(0, Math.Min(20, rs1.Length))  + "\n";
 //        msg += "testSock(" + i.ToString() +") ok:" + ss[0] + " " + ss[1] + "\n";
         try {
             timeout.Cancel(true);
