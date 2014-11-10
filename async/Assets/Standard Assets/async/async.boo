@@ -337,6 +337,7 @@ public class AsyncTimeout(IEnumerator):
 	_timeout as bool
 	_cancel as bool
 	timeout as int
+	now as DateTime
 	state as YieldState
 
 	public static def WithStart(timeout as double) as AsyncTimeout:
@@ -370,6 +371,7 @@ public class AsyncTimeout(IEnumerator):
 		h = Hub.Default()
 		self.y = h.Current
 		self.timeout = timeout
+		self.now = DateTime.Now
 		self.state = h.addTimeUp(timeout * TimeSpan.TicksPerMillisecond, self)
 
 	public def Cancel(isRaise as bool):
@@ -386,7 +388,7 @@ public class AsyncTimeout(IEnumerator):
 		return "Async.AsyncTimeout<$code>"
 
 	def PassTime() as TimeSpan:
-		return self.state.WakeTime - DateTime.Now
+		return DateTime.Now - self.now
 
 public class SocketError(AsyncError):
 	def constructor(s as string):

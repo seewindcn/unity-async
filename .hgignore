@@ -1,3 +1,4 @@
 syntax: glob
 async/Library/*
 async/ProjectSettings/*
+async/Temp/*

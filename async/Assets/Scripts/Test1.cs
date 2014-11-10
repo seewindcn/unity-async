@@ -2,6 +2,7 @@
 using System.Collections;
 using UnityEngine;
 using Async;
+using co = Cothread;
 
 
 public class Test1:MonoBehaviour {
@@ -23,12 +24,12 @@ public class Test1:MonoBehaviour {
     IEnumerable testSock(int i) {
         string stri = i.ToString();
         msg += "testSock:" + i.ToString() + CR;
-        int rt = (int)UnityEngine.Random.Range(100.0F, 1000.0F);
+        int rt = (int)UnityEngine.Random.Range(1000.0F, 2000.0F);
         AsyncTimeout timeout = AsyncTimeout.WithStart(5000);
         AsyncSocket s = new AsyncSocket();
         //yield return s.Connect("127.0.0.1", 6000);  //echo server
         yield return s.Connect("115.239.210.27", 80);  //www.baidu.com
-        yield return hub.Sleep(rt);
+        //yield return hub.Sleep(rt);
         //Debug.Log(stri + "-socket connected:" + s.Connected);
 
         yield return s.SendString("GET / HTTP/1.0\r\n\r\n");
@@ -47,7 +48,7 @@ public class Test1:MonoBehaviour {
         	Debug.Log(stri + "-Recv:" + l + "--"+  "-passTime:" + timeout.PassTime().ToString());
         }
         //string[] ss = ((string)rs[1]).Split(' ');
-        msg += "testSock(" + stri +") ok:" + rs1.Substring(0, Math.Min(20, rs1.Length))  + "\n";
+        msg += "testSock(" + stri +") ok:" + rs1.Substring(0, Math.Min(2000, rs1.Length))  + "\n";
 //        msg += "testSock(" + i.ToString() +") ok:" + ss[0] + " " + ss[1] + "\n";
         try {
             timeout.Cancel(true);
@@ -80,6 +81,7 @@ public class Test1:MonoBehaviour {
         }
     }
 
+
     void OnGUI() {
         int y = 10;
         int x = 10;
@@ -101,7 +103,8 @@ public class Test1:MonoBehaviour {
         y += 40;
         x = 0;
         if (GUI.Button(new Rect(10, y, 90, 30), "TimeoutTest")) {
-            hub.StartCoroutine(testTimeout());
+			//hub.StartCoroutine(testTimeout());
+			CoHub.Active.test(count);
         }
         x += 100;
         if (GUI.Button(new Rect(x, y, 90, 30), "EventTest")) {
