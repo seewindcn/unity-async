@@ -69,7 +69,7 @@ public class UnityHub: CothreadHub {
 
 	#region 扩展支持u3d
 	void RegisterU3d() {
-		CothreadHub.GlobalAsyncHandle = new CothreadHub.AsyncHandler(u3dAsyncCheck);
+		CothreadHub.GlobalAsyncHandle = u3dAsyncCheck;
 	}
 
 	void UnRegisterU3d() {
@@ -81,7 +81,8 @@ public class UnityHub: CothreadHub {
 		if (ie.Current.GetType().IsSubclassOf(typeof(YieldInstruction)) 
 		    || ie.Current is WWW 
 		    || ie.Current is WWWForm
-		    || ie.Current is Coroutine) {
+		    //|| ie.Current is Coroutine
+		    ) {
 			return u3dAsyncHandle(ie);
 		}
 		return null;

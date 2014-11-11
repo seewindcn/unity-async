@@ -249,17 +249,15 @@ namespace Cothread {
 			return;
 		}
 
+		static int _sortTimes(YieldState y1, YieldState y2) {
+			return y1.WakeTime.CompareTo(y2);
+		}
+
 		internal protected YieldState addTimeUp(long time, IEnumerator ie) {
 			var t = new TimeSpan(time);
 			var state = new YieldState(ie, DateTime.Now + t);
 			times.Add(state);
-			times.Sort((y1, y2)=> {
-				if (y1.WakeTime < y2.WakeTime)
-					return -1;
-				if (y1.WakeTime > y2.WakeTime)
-					return 1;
-				return 0;
-			});
+			times.Sort(_sortTimes);
 			return state;
 		}
 
