@@ -8,7 +8,7 @@ using co = Cothread;
 public class Test1:MonoBehaviour {
     static string CR = "\r\n";
     string msg = "";
-    int count = 8;
+    int count = 1;
     UnityHub hub;
     int uid = 0;
     public void Start() {

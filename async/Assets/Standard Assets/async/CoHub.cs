@@ -5,7 +5,7 @@ using System.Collections;
 using Cothread;
 
 public class CoHub: MonoBehaviour {
-	public static CothreadBaseHub Hub;
+	public static CothreadHub Hub;
 	public static CoHub Active;
 
 	public bool Started;
@@ -14,10 +14,10 @@ public class CoHub: MonoBehaviour {
 		if (Active != null && Active.Started)
 			return;
 		if (Hub == null) {
-			Hub = new CothreadBaseHub();
-			CothreadBaseHub.Instance = Hub;
+			Hub = new CothreadHub();
+			CothreadHub.Instance = Hub;
 		} 
-		Hub.LogHandler += Debug.Log;
+		CothreadHub.LogHandler = Debug.Log;
 		startLoop();
 	}
 
@@ -25,6 +25,7 @@ public class CoHub: MonoBehaviour {
 		Started = true;
 		Active = this;
 		Hub.BusyTickTime = 0.00001f;
+		RegisterU3d();
 		StartCoroutine(loop());
 	}
 
@@ -53,5 +54,36 @@ public class CoHub: MonoBehaviour {
 		tc.Start();
 		tc.test(count);
 	}
+
+
+	#region 扩展支持u3d
+	public void RegisterU3d() {
+		CothreadHub.GlobalAsyncHandle = new CothreadHub.AsyncHandler(u3dAsyncCheck);
+	}
+
+	object u3dAsyncCheck(IEnumerator ie) {
+		if (ie.Current.GetType().IsSubclassOf(typeof(YieldInstruction)) 
+		    || ie.Current is WWW 
+		    || ie.Current is WWWForm
+		    || ie.Current is Coroutine) {
+			return u3dAsyncHandle(ie);
+		}
+		return null;
+	}
+
+	IEnumerable u3dAsyncHandle(IEnumerator ie) {
+		Hub.addCallback(ie);
+		StartCoroutine(_u3dAsyncHandle(Hub.current, ie));
+		yield return CothreadHub.YIELD_CALLBACK;
+	}
+
+	IEnumerator _u3dAsyncHandle(IEnumerator curIE, IEnumerator ie) {
+		var cur = ie.Current;
+		yield return cur;
+		if (ie.Current == cur)
+			Hub.addCothread(curIE);
+	}
+
+	#endregion
 
 }

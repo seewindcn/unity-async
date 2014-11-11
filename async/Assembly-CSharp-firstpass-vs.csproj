@@ -47,6 +47,8 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\Standard Assets\async\CoHub.cs" />
+     <Compile Include="Assets\Standard Assets\async\CoSocket.cs" />
+     <Compile Include="Assets\Standard Assets\async\CoTest.cs" />
      <Compile Include="Assets\Standard Assets\async\Cothread.cs" />
  <Reference Include="UnityEngine.UI">
  <HintPath>D:/dev/u3d/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/4.6.0/UnityEngine.UI.dll</HintPath>
