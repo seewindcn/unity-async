@@ -1,3 +1,12 @@
+#region Header
+/**
+ *  Cothread for unity3d
+ *  Author: seewind
+ *  https://github.com/seewindcn/unity-async
+ *  email: seewindcn@gmail.com
+ **/
+#endregion
+
 using System;
 using System.Collections;
 using System.Net;

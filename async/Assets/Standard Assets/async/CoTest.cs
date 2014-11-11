@@ -1,3 +1,12 @@
+#region Header
+/**
+ *  Cothread for unity3d
+ *  Author: seewind
+ *  https://github.com/seewindcn/unity-async
+ *  email: seewindcn@gmail.com
+ **/
+#endregion
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -116,7 +125,7 @@ namespace Cothread {
 				CothreadHub.Log("[testU3d] www ok: size:" + w1.text.Length.ToString());
 
 			var result = new CothreadResult();
-			var u1 = CoHub.Active.StartCoroutine(_u3dCoroutine1(result));
+			var u1 = UnityHub.Active.StartCoroutine(_u3dCoroutine1(result));
 			yield return u1;
 			if (result.Result.Equals(true))
 				CothreadHub.Log("[testU3d]StartCoroutine ok");

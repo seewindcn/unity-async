@@ -1,3 +1,12 @@
+#region Header
+/**
+ *  Cothread for unity3d
+ *  Author: seewind
+ *  https://github.com/seewindcn/unity-async
+ *  email: seewindcn@gmail.com
+ **/
+#endregion
+
 using UnityEngine;
 using System;
 using System.Collections;
@@ -5,48 +14,50 @@ using System.Collections;
 using Cothread;
 
 public class CoHub: MonoBehaviour {
-	public static CothreadHub Hub;
-	public static CoHub Active;
+	public UnityHub Hub { get { return (UnityHub)UnityHub.Instance; } }
 
-	public bool Started;
+    public void Start() {
+    	UnityHub.Install(this);
+    }
+}
 
-	public void Install() {
-		if (Active != null && Active.Started)
-			return;
-		if (Hub == null) {
-			Hub = new CothreadHub();
-			CothreadHub.Instance = Hub;
-		} 
-		CothreadHub.LogHandler = Debug.Log;
-		startLoop();
+public class UnityHub: CothreadHub {
+	public static MonoBehaviour Active;
+
+	public static CothreadHub Install(MonoBehaviour active) {
+		Active = active;
+		if (Instance != null)
+			return Instance;
+		var Hub = new UnityHub();
+		CothreadHub.Instance = Hub;
+		Hub.Start();
+		return Hub;
 	}
 
-	void startLoop() {
-		Started = true;
-		Active = this;
-		Hub.BusyTickTime = 0.00001f;
+	public new void Start() {
+		if (!Stoped)
+			throw new SystemException("startLoop");
+		base.Start();
+		CothreadHub.LogHandler = Debug.Log;
+		BusyTickTime = 0.00001f;
 		RegisterU3d();
-		StartCoroutine(loop());
+		Active.StartCoroutine(loop());
 	}
 
 	IEnumerator loop() {
 		double sleepTime;
-		while (Started) {
-			sleepTime = Hub.Tick();
+		while (!Stoped) {
+			sleepTime = Tick();
 			if (sleepTime > 0.001f)
 				yield return new WaitForSeconds((float)sleepTime);
 		}
 	}
 
-    public void Start() {
-    	Install();
-    }
-
-	public void Stop() {
-		if (Active != this)
+	public new void Stop() {
+		if (Stoped)
 			return;
-		Started = false;
-		Active = null;
+		base.Stop();
+		UnRegisterU3d();
 	}
 
 	public void test(int count) {
@@ -57,9 +68,14 @@ public class CoHub: MonoBehaviour {
 
 
 	#region 扩展支持u3d
-	public void RegisterU3d() {
+	void RegisterU3d() {
 		CothreadHub.GlobalAsyncHandle = new CothreadHub.AsyncHandler(u3dAsyncCheck);
 	}
+
+	void UnRegisterU3d() {
+		CothreadHub.GlobalAsyncHandle = null;
+	}
+
 
 	object u3dAsyncCheck(IEnumerator ie) {
 		if (ie.Current.GetType().IsSubclassOf(typeof(YieldInstruction)) 
@@ -72,8 +88,8 @@ public class CoHub: MonoBehaviour {
 	}
 
 	IEnumerable u3dAsyncHandle(IEnumerator ie) {
-		Hub.addCallback(ie);
-		StartCoroutine(_u3dAsyncHandle(Hub.current, ie));
+		addCallback(ie);
+		Active.StartCoroutine(_u3dAsyncHandle(current, ie));
 		yield return CothreadHub.YIELD_CALLBACK;
 	}
 
@@ -81,7 +97,7 @@ public class CoHub: MonoBehaviour {
 		var cur = ie.Current;
 		yield return cur;
 		if (ie.Current == cur)
-			Hub.addCothread(curIE);
+			addCothread(curIE);
 	}
 
 	#endregion

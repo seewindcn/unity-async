@@ -1,4 +1,13 @@
-﻿using UnityEngine;
+﻿#region Header
+/**
+ *  Cothread for unity3d
+ *  Author: seewind
+ *  https://github.com/seewindcn/unity-async
+ *  email: seewindcn@gmail.com
+ **/
+#endregion
+
+using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -476,6 +485,11 @@ namespace Cothread {
 			if (isThrow && Timeout) 
 				throw new CothreadTimeoutError("Timeout");
 			cancel = true;
+		}
+
+		public override string ToString() {
+			return string.Format("Cothread.CothreadTimeout<{0}>(timeout={1}, state={2}", 
+			                     GetHashCode(), state.ToString(), TimeoutTime);
 		}
 
 	}
