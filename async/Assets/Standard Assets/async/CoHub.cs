@@ -38,8 +38,10 @@ public class UnityHub: CothreadHub {
 		if (!Stoped)
 			throw new SystemException("startLoop");
 		base.Start();
-		CothreadHub.LogHandler = Debug.Log;
+		if (CothreadHub.LogHandler == null)
+			CothreadHub.LogHandler = Debug.Log;
 		BusyTickTime = 0.00001f;
+		IdleTickTime = 0.002f;
 		RegisterU3d();
 		Active.StartCoroutine(loop());
 	}
@@ -60,7 +62,7 @@ public class UnityHub: CothreadHub {
 		UnRegisterU3d();
 	}
 
-	public void test(int count) {
+	public static void test(int count) {
 		var tc = new CothreadTestCase();
 		tc.Start();
 		tc.test(count);
@@ -68,6 +70,7 @@ public class UnityHub: CothreadHub {
 
 
 	#region 扩展支持u3d
+
 	void RegisterU3d() {
 		CothreadHub.GlobalAsyncHandle = u3dAsyncCheck;
 	}

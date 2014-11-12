@@ -115,24 +115,24 @@ namespace Cothread {
 			return th;
 		}
 
-		public Cothread StartCoroutine(int ms, IEnumerator routine) {
+		public Cothread StartCoroutine(double seconds, IEnumerator routine) {
 			var iee = callIEnumerable(routine);
 			var ie = iee.GetEnumerator();
 			var th = new Cothread(ie);
-			addTimeUp(ms * TimeSpan.TicksPerMillisecond, ie);
+			addTimeUp(seconds * TimeSpan.TicksPerSecond, ie);
 			threads[ie] = th;
 			return th;
 		}
 
-		public IEnumerable Sleep(int ms) {
+		public IEnumerable Sleep(double seconds) {
 			if (current == null) {
 				throw new CothreadError("hup.Sleep only can be call from coroutine");
 			}
-			addTimeUp(ms * TimeSpan.TicksPerMillisecond, current);
+			addTimeUp(seconds * TimeSpan.TicksPerSecond, current);
 			yield return CothreadHub.YIELD_CALLBACK;
 		}
 
-		public IEnumerator Join(IEnumerator ie, double timeout) {
+		protected internal IEnumerator Join(IEnumerator ie, double timeout) {
 			var th = GetCothread(ie);
 			if (th == null)
 				return null;
@@ -250,11 +250,18 @@ namespace Cothread {
 		}
 
 		static int _sortTimes(YieldState y1, YieldState y2) {
-			return y1.WakeTime.CompareTo(y2);
+			return y1.WakeTime.CompareTo(y2.WakeTime);
+			/*
+			if (y1.WakeTime < y2.WakeTime)
+				return -1;
+			if (y1.WakeTime > y2.WakeTime)
+				return 1;
+			return 0;
+			*/
 		}
 
-		internal protected YieldState addTimeUp(long time, IEnumerator ie) {
-			var t = new TimeSpan(time);
+		internal protected YieldState addTimeUp(double time, IEnumerator ie) {
+			var t = new TimeSpan((long)time);
 			var state = new YieldState(ie, DateTime.Now + t);
 			times.Add(state);
 			times.Sort(_sortTimes);
@@ -301,8 +308,8 @@ namespace Cothread {
 				ok = false;
 				try {
 					ok = ie.MoveNext();
-				} catch (Exception) {
-					//Log(err);
+				} catch (Exception err) {
+					CothreadHub.Log(err);
 				}
 				if (!ok)
 					yield break;
@@ -341,7 +348,7 @@ namespace Cothread {
 			Stoped = false;
 			while (!Stoped) {
 				double sleepTime = Tick();
-				Thread.Sleep((int)(sleepTime * TimeSpan.TicksPerMillisecond));
+				Thread.Sleep((int)(sleepTime * TimeSpan.TicksPerSecond));
 			}
 		}
 	}
@@ -352,19 +359,27 @@ namespace Cothread {
 		public object AsyncResult;
 		public CothreadTimeout Timeout;
 
-		CothreadEvent ev;
+		private CothreadEvent _ev;
+		CothreadEvent ev {
+			get {
+				if (_ev == null)
+					_ev = new CothreadEvent();
+				return _ev;
+			}
+		}
 
 		public Cothread(IEnumerator ie) {
 			IE = ie;
 			Closed = false;
-			ev = null;
 		}
 
 		public void Close() {
+			if (_ev != null)
+				_ev.Set(this);
 			Closed = true;
 		}
 
-		public IEnumerator Join(double timeout) {
+		public IEnumerator Join(double timeout=-1.0) {
 			return ev.Wait(timeout);
 		}
 
@@ -402,7 +417,7 @@ namespace Cothread {
 			Clear();
 		}
 
-		public IEnumerator Wait(double timeout) {
+		public IEnumerator Wait(double timeout=-1) {
 			if (Current != NULL) {
 				yield return Current;
 				yield break;
@@ -416,7 +431,7 @@ namespace Cothread {
 				t.Cancel(false);
 		}
 
-		public object Get(object defaultValue) {
+		public object Get(object defaultValue=null) {
 			if (Current != NULL) 
 				return Current;
 			return defaultValue;
@@ -473,7 +488,7 @@ namespace Cothread {
 			ie = hub.current;
 			TimeoutTime = timeout;
 			startTime = DateTime.Now;
-			state = hub.addTimeUp((long)timeout * TimeSpan.TicksPerMillisecond, this);
+			state = hub.addTimeUp(timeout * TimeSpan.TicksPerSecond, this);
 		}
 
 		public void Cancel(bool isThrow) {

@@ -23,14 +23,16 @@ namespace Cothread {
 		public void test(int count) {
 			hub.StartCoroutine(testTimeout1());
 			hub.StartCoroutine(testTimeout2());
-			testEvent(count);
+			testEvent1(count);
+			hub.StartCoroutine(testEvent2());
 			testSock(count);
+			hub.StartCoroutine(testJoin());
 			hub.StartCoroutine(testU3d(count));
 		}
 		
 		IEnumerator testTimeout1() {
-			var timeout = CothreadTimeout.NewWithStart(1005);
-			yield return hub.Sleep(1000);
+			var timeout = CothreadTimeout.NewWithStart(1.005);
+			yield return hub.Sleep(1.000);
 			try {
 				timeout.Cancel(true);
 				CothreadHub.Log("[testTimeout1] ok");
@@ -39,8 +41,8 @@ namespace Cothread {
 			}
 		}
 		IEnumerator testTimeout2() {
-			var timeout = CothreadTimeout.NewWithStart(1005);
-			yield return hub.Sleep(1010);
+			var timeout = CothreadTimeout.NewWithStart(1.005);
+			yield return hub.Sleep(1.010);
 			try {
 				timeout.Cancel(true);
 				CothreadHub.Log("[testTimeout2] CothreadTimeoutError error");
@@ -49,7 +51,7 @@ namespace Cothread {
 			}
 		}
 		
-		void testEvent(int count) {
+		void testEvent1(int count) {
 			CothreadEvent ev, nev, bev;
 			bev = ev = new CothreadEvent();
 			for (int i = 0; i < count; i++) {
@@ -58,12 +60,12 @@ namespace Cothread {
 				} else {
 					nev = new CothreadEvent();
 				}
-				hub.StartCoroutine(testEvent1(i+1, ev, nev));
+				hub.StartCoroutine(_testEvent1(i+1, ev, nev));
 				ev = nev;
 			}
 			bev.Set("event");
 		}
-		IEnumerator testEvent1(int i, CothreadEvent ev, CothreadEvent nev) {
+		IEnumerator _testEvent1(int i, CothreadEvent ev, CothreadEvent nev) {
 			yield return ev.Wait(0);
 			var result = (string)ev.Get("");
 			var msg = string.Format("{0} {1} ->", result, i.ToString());
@@ -72,6 +74,20 @@ namespace Cothread {
 			} else {
 				CothreadHub.Log("result: " + msg);
 			}
+		}
+
+		IEnumerator testEvent2() {
+			var ev = new CothreadEvent();
+			hub.StartCoroutine(_testEvent2(ev));
+			yield return ev.Wait();
+			if (!ev.Get().Equals(1))
+				CothreadHub.Log("[testEvent2] error");
+			else
+				CothreadHub.Log("[testEvent2] ok");
+		}
+		IEnumerator _testEvent2(CothreadEvent ev) {
+			yield return hub.Sleep(1);
+			ev.Set(1);
 		}
 
 
@@ -85,9 +101,9 @@ namespace Cothread {
 		IEnumerator testSock1(int i) {
 			string stri = i.ToString();
 			CothreadHub.Log("testSock:" + stri);
-			CothreadTimeout timeout = CothreadTimeout.NewWithStart(5000);
+			CothreadTimeout timeout = CothreadTimeout.NewWithStart(5);
 			CothreadSocket sock = new CothreadSocket();
-			yield return sock.Connect("127.0.0.1", 8000);  //web server
+			yield return sock.Connect("192.168.0.210", 81);  //web server
 			//yield return sock.Connect("www.baidu.com", 80);  //www.baidu.com
 			//yield return sock.Connect("115.239.210.27", 80);  //www.baidu.com
 			//yield return hub.Sleep(rt);
@@ -98,7 +114,7 @@ namespace Cothread {
 			var recvData = new CothreadSocketRecvData(2048);
 			var result = new CothreadResult();
 
-			yield return hub.Sleep(1000);
+			yield return hub.Sleep(1.000);
 			yield return sock.RecvString(recvData, result);
 			string s1 = (string)result.Result;
 			if (s1.Length <= 0) 
@@ -114,6 +130,19 @@ namespace Cothread {
 			}
 		}
 
+		IEnumerator testJoin() {
+			var timeout = CothreadTimeout.NewWithStart(1);
+			var ct1 = hub.StartCoroutine(_testJoin());
+			yield return ct1.Join();
+			if (!timeout.Timeout)
+				CothreadHub.Log("[testJoin] error");
+			else
+				CothreadHub.Log("[testJoin] ok");
+		}
+
+		IEnumerator _testJoin() {
+			yield return hub.Sleep(1.000);
+		}
 
 		//u3d
 		IEnumerator testU3d(int count) {
